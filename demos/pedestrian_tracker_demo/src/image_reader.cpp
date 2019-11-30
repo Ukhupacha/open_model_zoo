@@ -30,6 +30,11 @@ bool IsFile(const std::string& path) {
         return true;
     return false;
 }
+bool IsCam(const std::string& path){
+    if (path=="cam")
+        return true;
+    return false;
+}
 }  // anonymous namespace
 
 class ImageReaderForFolder: public ImageReader {
@@ -121,6 +126,44 @@ private:
     cv::VideoCapture video_capture;
 };
 
+class ImageReaderForCam: public ImageReader {
+public:
+    explicit ImageReaderForCam(int cam)
+        : video_capture(cam) {}
+
+    bool IsOpened() const {
+        return video_capture.isOpened();
+    }
+    void SetFrameIndex(size_t frame_index) {
+        THROW_IE_EXCEPTION << "ImageReader does not set frame index in video, "
+            << "since in the current implementation it is not precise";
+    }
+
+    int FrameIndex() const {
+        return frame_index_;
+    }
+
+    ImageWithFrameIndex Read() {
+        ImageWithFrameIndex result;
+        video_capture >> result.first;
+        result.second = frame_index_;
+        frame_index_++;
+        return result;
+    }
+
+    double GetFrameRate() const {
+        double video_fps = video_capture.get(cv::CAP_PROP_FPS);
+        if ((video_fps <= 0) || (video_fps > 200)) {
+            video_fps = 30;
+        }
+        return video_fps;
+    }
+
+private:
+    size_t frame_index_ = 1;
+    cv::VideoCapture video_capture;
+};
+
 std::unique_ptr<ImageReader> ImageReader::CreateImageReaderForImageFolder(
     const std::string& folder_path, size_t start_frame_index) {
     return std::unique_ptr<ImageReader>(
@@ -133,6 +176,12 @@ std::unique_ptr<ImageReader> ImageReader::CreateImageReaderForVideoFile(
         new ImageReaderForVideoFile(file_path));
 }
 
+std::unique_ptr<ImageReader> ImageReader::CreateImageReaderForCam(
+    int cam) {
+    return std::unique_ptr<ImageReader>(
+        new ImageReaderForCam(cam));
+    }
+
 std::unique_ptr<ImageReader> ImageReader::CreateImageReaderForPath(
     const std::string& path) {
     if (IsFolder(path))
@@ -140,6 +189,9 @@ std::unique_ptr<ImageReader> ImageReader::CreateImageReaderForPath(
 
     if (IsFile(path))
         return ImageReader::CreateImageReaderForVideoFile(path);
+
+    if (IsCam(path))
+        return ImageReader::CreateImageReaderForCam(0);
 
     return std::unique_ptr<ImageReader>();
 }

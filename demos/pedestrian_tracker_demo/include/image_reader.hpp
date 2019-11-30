@@ -28,6 +28,10 @@ public:
     static std::unique_ptr<ImageReader> CreateImageReaderForVideoFile(
         const std::string& file_path);
 
+    /// @brief Create ImageReader to read from cam.
+    static std::unique_ptr<ImageReader> CreateImageReaderForCam(
+        int cam);
+
     /// @brief Create ImageReader to read either from a video file
     ///        (if the path points to a file) or from a folder with images
     ///        (if the path points to a folder)
