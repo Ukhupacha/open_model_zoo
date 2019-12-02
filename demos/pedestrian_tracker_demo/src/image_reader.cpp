@@ -193,5 +193,5 @@ std::unique_ptr<ImageReader> ImageReader::CreateImageReaderForPath(
     if (IsCam(path))
         return ImageReader::CreateImageReaderForCam(0);
 
-    return std::unique_ptr<ImageReader>();
+    return ImageReader::CreateImageReaderForVideoFile(path);
 }
