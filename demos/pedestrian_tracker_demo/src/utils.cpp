@@ -4,6 +4,7 @@
 
 #include "utils.hpp"
 
+#include "core.hpp"
 #include <opencv2/imgproc.hpp>
 
 #include <ie_plugin_config.hpp>
@@ -14,6 +15,7 @@
 #include <string>
 #include <set>
 #include <memory>
+#include <ctime>
 #ifdef WITH_EXTENSIONS
 #include <ext_list.hpp>
 #endif
@@ -65,6 +67,24 @@ void SaveDetectionLogToTrajFile(const std::string& path,
 
 void PrintDetectionLog(const DetectionLog& log) {
     SaveDetectionLogToStream(std::cout, log);
+}
+
+void sendTracklet(int frame, mqtt *publisher, const TrackedObjects detections) {
+
+    std::time_t now = std::time(nullptr);
+    for (TrackedObject const& track : detections) {
+        std::stringstream rawPose;
+        std::tm * ptm = std::localtime(&now);
+        char timestamp[20];
+        // Format: 15/06/2009-20:20:00
+        std::strftime(timestamp, 20, "%d/%m/%Y-%H:%M:%S", ptm);
+        rawPose << std::fixed << std::setprecision(0);
+        // timestamp frame id x y width heigth
+        rawPose << timestamp << " " << std::to_string(frame) << ' ' << std::to_string(track.object_id) << ' ';
+        rawPose << track.rect.x << ' ' << track.rect.y << ' ' <<  track.rect.width << ' ' << track.rect.height;
+        publisher->send_message(rawPose.str().c_str());
+
+    }
 }
 
 InferenceEngine::Core

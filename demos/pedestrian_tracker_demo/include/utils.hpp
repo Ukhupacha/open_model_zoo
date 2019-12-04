@@ -14,6 +14,7 @@
 #include <utility>
 #include <deque>
 #include <map>
+#include <mqtt.h>
 
 #include <samples/common.hpp>
 
@@ -92,6 +93,8 @@ void SaveDetectionLogToTrajFile(const std::string& path,
 /// \param[in] log  -- detection log to print
 ///
 void PrintDetectionLog(const DetectionLog& log);
+
+void sendTracklet(int frame_idx, mqtt *publisher, TrackedObjects objects);
 
 ///
 /// \brief Draws a polyline on a frame.

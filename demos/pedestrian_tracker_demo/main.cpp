@@ -19,6 +19,8 @@
 #include <memory>
 #include <string>
 #include <gflags/gflags.h>
+#include <mqtt.h>
+#define APPLICATION_TOPIC "Tracker"
 
 using namespace InferenceEngine;
 using ImageWithFrameIndex = std::pair<cv::Mat, int>;
@@ -147,6 +149,9 @@ int main_work(int argc, char **argv) {
             "last frame index (" + std::to_string(FLAGS_last) + ')');
     }
 
+     mqtt *mqtt_tracker;
+     mqtt_tracker = new mqtt(FLAGS_client.c_str(), (char*)APPLICATION_TOPIC, FLAGS_broker.c_str(), FLAGS_port);
+
     std::vector<std::string> devices{detector_mode, reid_mode};
     InferenceEngine::Core ie =
         LoadInferenceEngine(
@@ -224,6 +229,9 @@ int main_work(int argc, char **argv) {
                 cv::putText(frame, text, detection.rect.tl(), cv::FONT_HERSHEY_COMPLEX,
                             1.0, cv::Scalar(0, 0, 255), 3);
             }
+
+            if (should_print_out)
+                sendTracklet(frame_idx, mqtt_tracker, tracker->TrackedDetections());
 
             cv::resize(frame, frame, cv::Size(), 0.5, 0.5);
             cv::imshow("dbg", frame);

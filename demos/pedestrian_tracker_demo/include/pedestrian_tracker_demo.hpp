@@ -44,6 +44,15 @@ static const char custom_cpu_library_message[] = "Optional. For CPU custom layer
 static const char raw_output_message[] = "Optional. Output pedestrian tracking results in a raw format "\
                                           "(compatible with MOTChallenge format).";
 
+/// @brief Message for MQTT Broker
+static const char broker_mqtt_message[] = "Optional. MQTT Broker address.";
+
+// @brief Message for MQTT client id
+static const char client_mqtt_message[] = "Optional. MQTT Client id.";
+
+// @brief Message for MQTT port
+static const char port_mqtt_message[] = "Optional. MOTT port";
+
 /// @brief message no show processed video
 static const char no_show_processed_video[] = "Optional. Do not show processed video.";
 
@@ -102,6 +111,18 @@ DEFINE_string(l, "", custom_cpu_library_message);
 /// It is an optional parameter
 DEFINE_bool(r, false, raw_output_message);
 
+// @brief Defines parameter for setting MQTT broker <br>
+/// It is an optional parameter
+DEFINE_string(broker, "localhost", broker_mqtt_message);
+
+/// @brief Defines parameter for MQTT client id <br>
+/// It is an optional parameter
+DEFINE_string(client, "Demo", client_mqtt_message);
+
+/// @brief Defines parameter for the  MQTT port <br>
+/// It is an optional parameter
+DEFINE_int32(port, 1883, port_mqtt_message);
+
 /// @brief Flag to disable processed video showing<br>
 /// It is an optional parameter
 DEFINE_bool(no_show, false, no_show_processed_video);
@@ -141,6 +162,9 @@ static void showUsage() {
     std::cout << "    -d_det \"<device>\"            " << target_device_detection_message << std::endl;
     std::cout << "    -d_reid \"<device>\"           " << target_device_reid_message << std::endl;
     std::cout << "    -r                           " << raw_output_message << std::endl;
+    std::cout << "    -client                    " << client_mqtt_message << std::endl;
+    std::cout << "    -broker                    " << broker_mqtt_message<< std::endl;
+    std::cout << "    -port                      " << port_mqtt_message<< std::endl;
     std::cout << "    -pc                          " << performance_counter_message << std::endl;
     std::cout << "    -no_show                     " << no_show_processed_video << std::endl;
     std::cout << "    -delay                       " << delay_message << std::endl;
