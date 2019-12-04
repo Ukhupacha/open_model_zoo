@@ -46,6 +46,9 @@ Options:
     -d_det "<device>"            Optional. Specify the target device for pedestrian detection (the list of available devices is shown below). Default value is CPU. Use "-d HETERO:<comma-separated_devices_list>" format to specify HETERO plugin.
     -d_reid "<device>"           Optional. Specify the target device for pedestrian reidentification (the list of available devices is shown below). Default value is CPU. Use "-d HETERO:<comma-separated_devices_list>" format to specify HETERO plugin.
     -r                           Optional. Output pedestrian tracking results in a raw format (compatible with MOTChallenge format).
+    -client                      Optional. MQTT Client id.
+    -broker                      Optional. MQTT Broker address.
+    -port                        Optional. MOTT port.
     -pc                          Optional. Enable per-layer performance statistics.
     -no_show                     Optional. Do not show processed video.
     -delay                       Optional. Delay between frames used for visualization. If negative, the visualization is turned off (like with the option 'no_show'). If zero, the visualization is made frame-by-frame.
@@ -71,7 +74,7 @@ For example, to run the application with the OpenVINO&trade; toolkit pre-trained
 
 The demo uses OpenCV to display the resulting frame with detections rendered as bounding boxes, curves (for trajectories displaying), and text.
 
-> **NOTE**: On VPU devices (Intel® Movidius™ Neural Compute Stick, Intel® Neural Compute Stick 2, and Intel® Vision Accelerator Design with Intel® Movidius™ VPUs) this demo has been tested on the following Model Downloader available topologies: 
+> **NOTE**: On VPU devices (Intel® Movidius™ Neural Compute Stick, Intel® Neural Compute Stick 2, and Intel® Vision Accelerator Design with Intel® Movidius™ VPUs) this demo has been tested on the following Model Downloader available topologies:
 >* `person-detection-retail-0013`
 >* `person-reidentification-retail-0031`
 > Other models may produce unexpected results on these devices.

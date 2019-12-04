@@ -41,7 +41,7 @@ static const char broker_mqtt_message[] = "Optional. MQTT Broker address.";
 static const char client_mqtt_message[] = "Optional. MQTT Client id.";
 
 // @brief Message for MQTT port
-static const char port_mqtt_message[] = "Optional. MOTT port";
+static const char port_mqtt_message[] = "Optional. MOTT port.";
 
 
 /// @brief Defines flag for showing help message <br>

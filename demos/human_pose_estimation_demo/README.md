@@ -38,6 +38,9 @@ Options:
     -no_show                   Optional. Do not show processed video.
     -black                     Optional. Show black background.
     -r                         Optional. Output inference results as raw values.
+    -client                    Optional. MQTT Client id.
+    -broker                    Optional. MQTT Broker address.
+    -port                      Optional. MOTT port.
 
 ```
 
@@ -56,7 +59,7 @@ For example, to do inference on a CPU, run the following command:
 ## Demo Output
 
 The demo uses OpenCV to display the resulting frame with estimated poses and text report of **FPS** - frames per second performance for the human pose estimation demo.
-> **NOTE**: On VPU devices (Intel® Movidius™ Neural Compute Stick, Intel® Neural Compute Stick 2, and Intel® Vision Accelerator Design with Intel® Movidius™ VPUs) this demo has been tested on the following Model Downloader available topologies: 
+> **NOTE**: On VPU devices (Intel® Movidius™ Neural Compute Stick, Intel® Neural Compute Stick 2, and Intel® Vision Accelerator Design with Intel® Movidius™ VPUs) this demo has been tested on the following Model Downloader available topologies:
 >* `human-pose-estimation-0001`
 > Other models may produce unexpected results on these devices.
 
