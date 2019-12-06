@@ -6,6 +6,7 @@ mqtt::mqtt(const char * id, const char * application_topic, const char * broker,
     this->id = id;
     this->port = port;
     this->broker = broker;
+    this->reconnecting = 0;
     std::string base_topic = GENERAL_TOPIC;
     std::string app_topic = application_topic;
     std::string sender_topic = id;
@@ -36,6 +37,9 @@ bool mqtt::send_message(const char * message) {
 
  void mqtt::on_disconnect(int rc) {
      std::cout << ">> mqtt - disconnection(" << rc << ")" << std::endl;
+     std::cout << "<< Reconnecting  (" << this->reconnecting << ")" << std::endl;
+     reconnect();
+     this->reconnecting++;
  }
 
 void mqtt::on_connect(int rc) {

@@ -17,6 +17,7 @@ private:
     std::string topic;
     int port;
     int keepalive;
+    int reconnecting;
     void on_connect(int rc);
     void on_disconnect(int rc);
     void on_publish(int mid);
