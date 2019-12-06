@@ -8,7 +8,7 @@
 #include <string>
 
 #define MAX_PAYLOAD 50
-#define DEFAULT_KEEP_ALIVE 60
+#define DEFAULT_KEEP_ALIVE 3600
 #define GENERAL_TOPIC "OpenVINO"
 class mqtt : public mosqpp::mosquittopp {
 private:
