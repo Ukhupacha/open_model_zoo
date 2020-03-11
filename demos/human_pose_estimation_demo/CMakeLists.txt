@@ -9,5 +9,6 @@ ie_add_sample(NAME human_pose_estimation_demo
               SOURCES ${SOURCES}
               HEADERS ${HEADERS}
               INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/include"
+              DEPENDENCIES monitors
               DEPENDENCIES mqtt
               OPENCV_DEPENDENCIES highgui)

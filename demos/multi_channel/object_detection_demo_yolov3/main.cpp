@@ -27,8 +27,8 @@
 
 #include <opencv2/opencv.hpp>
 
+#include <monitors/presenter.h>
 #include <samples/slog.hpp>
-
 #include <samples/args_helper.hpp>
 
 #include "input.hpp"
@@ -67,6 +67,7 @@ void showUsage() {
     std::cout << "    -duplicate_num               " << duplication_channel_number << std::endl;
     std::cout << "    -real_input_fps              " << real_input_fps << std::endl;
     std::cout << "    -i                           " << input_video << std::endl;
+    std::cout << "    -u                           " << utilization_monitors_message << std::endl;
 }
 
 bool ParseAndCheckCommandLine(int argc, char *argv[]) {
@@ -149,7 +150,7 @@ double IntersectionOverUnion(const DetectionObject &box_1, const DetectionObject
     return area_of_overlap / area_of_union;
 }
 
-void ParseYOLOV3Output(InferenceEngine::InferRequest::Ptr req, 
+void ParseYOLOV3Output(InferenceEngine::InferRequest::Ptr req,
                        const std::string outputName,
                        const YoloParams yoloParams, const unsigned long resized_im_h,
                        const unsigned long resized_im_w, const unsigned long original_im_h,
@@ -202,12 +203,12 @@ void ParseYOLOV3Output(InferenceEngine::InferRequest::Ptr req,
 
 void drawDetections(cv::Mat& img, const std::vector<DetectionObject>& detections, const std::vector<cv::Scalar>& colors) {
     for (const DetectionObject& f : detections) {
-        cv::rectangle(img, 
+        cv::rectangle(img,
                       cv::Rect2f(static_cast<float>(f.xmin),
                                  static_cast<float>(f.ymin),
                                  static_cast<float>((f.xmax-f.xmin)),
-                                 static_cast<float>((f.ymax-f.ymin))), 
-                      colors[static_cast<int>(f.class_id)], 
+                                 static_cast<float>((f.ymax-f.ymin))),
+                      colors[static_cast<int>(f.class_id)],
                       2);
     }
 }
@@ -243,12 +244,12 @@ DisplayParams prepareDisplayParams(size_t count) {
     return params;
 }
 
-std::map<std::string, YoloParams> GetYoloParams(const std::vector<std::string>& outputDataBlobNames, 
-                                                InferenceEngine::CNNNetReader &netReader) {
+std::map<std::string, YoloParams> GetYoloParams(const std::vector<std::string>& outputDataBlobNames,
+                                                InferenceEngine::CNNNetwork &network) {
     std::map<std::string, YoloParams> __yoloParams;
 
     for (auto &output_name :outputDataBlobNames) {
-        InferenceEngine::CNNLayerPtr layer = netReader.getNetwork().getLayerByName(output_name.c_str());
+        InferenceEngine::CNNLayerPtr layer = network.getLayerByName(output_name.c_str());
 
         if (layer->type != "RegionYolo")
             throw std::runtime_error("Invalid output type: " + layer->type + ". RegionYolo expected");
@@ -256,7 +257,7 @@ std::map<std::string, YoloParams> GetYoloParams(const std::vector<std::string>& 
         auto num = layer->GetParamAsInt("num");
         auto coords = layer->GetParamAsInt("coords");
         auto classes = layer->GetParamAsInt("classes");
-    
+
         std::vector<float> anchors = layer->GetParamAsFloats("anchors");
 
         auto mask = layer->GetParamAsInts("mask");
@@ -280,7 +281,8 @@ void displayNSources(const std::vector<std::shared_ptr<VideoFrame>>& data,
                      float time,
                      const std::string& stats,
                      const DisplayParams& params,
-                     const std::vector<cv::Scalar> colors) {
+                     const std::vector<cv::Scalar> colors,
+                     Presenter& presenter) {
     cv::Mat windowImage = cv::Mat::zeros(params.windowSize, CV_8UC3);
     auto loopBody = [&](size_t i) {
         auto& elem = data[i];
@@ -321,6 +323,7 @@ void displayNSources(const std::vector<std::shared_ptr<VideoFrame>>& data,
         loopBody(i);
     }
 #endif
+    presenter.drawGraphs(windowImage);
     drawStats();
 
     char str[256];
@@ -344,7 +347,6 @@ int main(int argc, char* argv[]) {
             return 0;
         }
 
-        std::string weightsPath;
         std::string modelPath = FLAGS_m;
         std::size_t found = modelPath.find_last_of(".");
         if (found > modelPath.size()) {
@@ -352,9 +354,7 @@ int main(int argc, char* argv[]) {
             slog::info << "Expected to be <model_name>.xml" << slog::endl;
             return -1;
         }
-        weightsPath = modelPath.substr(0, found) + ".bin";
         slog::info << "Model   path: " << modelPath << slog::endl;
-        slog::info << "Weights path: " << weightsPath << slog::endl;
 
         std::map<std::string, YoloParams> yoloParams;
 
@@ -364,13 +364,12 @@ int main(int argc, char* argv[]) {
         graphParams.collectStats    = FLAGS_show_stats;
         graphParams.reportPerf      = FLAGS_pc;
         graphParams.modelPath       = modelPath;
-        graphParams.weightsPath     = weightsPath;
         graphParams.cpuExtPath      = FLAGS_l;
         graphParams.cldnnConfigPath = FLAGS_c;
         graphParams.deviceName      = FLAGS_d;
-        graphParams.postLoadFunc    = [&yoloParams](const std::vector<std::string>& outputDataBlobNames, 
-                                                    InferenceEngine::CNNNetReader &reader) {
-                                                        yoloParams = GetYoloParams(outputDataBlobNames, reader);
+        graphParams.postLoadFunc    = [&yoloParams](const std::vector<std::string>& outputDataBlobNames,
+                                                    InferenceEngine::CNNNetwork &network) {
+                                                        yoloParams = GetYoloParams(outputDataBlobNames, network);
                                                     };
 
         std::shared_ptr<IEGraph> network(new IEGraph(graphParams));
@@ -440,9 +439,9 @@ int main(int argc, char* argv[]) {
             auto camIdx = currentFrame / duplicateFactor;
             currentFrame = (currentFrame + 1) % numberOfInputs;
             return sources.getFrame(camIdx, img);
-        }, [&yoloParams](InferenceEngine::InferRequest::Ptr req, 
-                const std::vector<std::string>& outputDataBlobNames, 
-                cv::Size frameSize 
+        }, [&yoloParams](InferenceEngine::InferRequest::Ptr req,
+                const std::vector<std::string>& outputDataBlobNames,
+                cv::Size frameSize
                 ) {
             unsigned long resized_im_h = 416;
             unsigned long resized_im_w = 416;
@@ -464,7 +463,7 @@ int main(int argc, char* argv[]) {
 
             std::vector<Detections> detections(1);
             detections[0].set(new std::vector<DetectionObject>);
-            
+
             for (auto &object : objects) {
                 if (object.confidence < FLAGS_t)
                     continue;
@@ -489,6 +488,9 @@ int main(int argc, char* argv[]) {
         }
         std::cout << std::endl;
 
+        cv::Size graphSize{static_cast<int>(params.windowSize.width / 4), 60};
+        Presenter presenter(FLAGS_u, params.windowSize.height - graphSize.height - 10, graphSize);
+
         const size_t outputQueueSize = 1;
         AsyncOutput output(FLAGS_show_stats, outputQueueSize,
         [&](const std::vector<std::shared_ptr<VideoFrame>>& result) {
@@ -497,9 +499,11 @@ int main(int argc, char* argv[]) {
                 std::unique_lock<std::mutex> lock(statMutex);
                 str = statStream.str();
             }
-            displayNSources(result, averageFps, str, params, colors);
+            displayNSources(result, averageFps, str, params, colors, presenter);
+            int key = cv::waitKey(1);
+            presenter.handleKey(key);
 
-            return (cv::waitKey(1) != 27);
+            return (key != 27);
         });
 
         output.start();
@@ -594,6 +598,8 @@ int main(int argc, char* argv[]) {
         }
 
         network.reset();
+
+        std::cout << presenter.reportMeans() << '\n';
     }
     catch (const std::exception& error) {
         slog::err << error.what() << slog::endl;

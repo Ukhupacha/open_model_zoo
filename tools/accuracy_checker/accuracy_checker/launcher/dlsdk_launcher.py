@@ -44,13 +44,14 @@ HETERO_KEYWORD = 'HETERO:'
 MULTI_DEVICE_KEYWORD = 'MULTI:'
 FPGA_COMPILER_MODE_VAR = 'CL_CONTEXT_COMPILER_MODE_INTELFPGA'
 NIREQ_REGEX = r"(\(\d+\))"
+MYRIAD_WITH_DEVICE_ID = r"MYRIAD\.*.*"
 HETERO_MODE_REGEX = r"(?:^{hetero}(?P<devices>(?:{devices})(?:,(?:{devices}))*)$)".format(
-    hetero=HETERO_KEYWORD, devices="|".join(ie.known_plugins)
+    hetero=HETERO_KEYWORD, devices="|".join(ie.known_plugins + [MYRIAD_WITH_DEVICE_ID])
 )
 MULTI_DEVICE_MODE_REGEX = r"(?:^{multi}(?P<devices_ireq>(?:{devices_ireq})(?:,(?:{devices_ireq}))*)$)".format(
-    multi=MULTI_DEVICE_KEYWORD, devices_ireq="{}?|".format(NIREQ_REGEX).join(ie.known_plugins)
+    multi=MULTI_DEVICE_KEYWORD, devices_ireq="{}?|".format(NIREQ_REGEX).join(ie.known_plugins + [MYRIAD_WITH_DEVICE_ID])
 )
-DEVICE_REGEX = r"(?:^(?P<device>{devices})$)".format(devices="|".join(ie.known_plugins))
+DEVICE_REGEX = r"(?:^(?P<device>{devices})$)".format(devices="|".join(ie.known_plugins + [MYRIAD_WITH_DEVICE_ID]))
 SUPPORTED_DEVICE_REGEX = r"{multi}|{hetero}|{regular}".format(
     multi=MULTI_DEVICE_MODE_REGEX, hetero=HETERO_MODE_REGEX, regular=DEVICE_REGEX
 )
@@ -169,7 +170,7 @@ class DLSDKLauncher(Launcher):
             'device': StringField(regex=SUPPORTED_DEVICE_REGEX, description="Device name."),
             'caffe_model': PathField(optional=True, description="Path to Caffe model file."),
             'caffe_weights': PathField(optional=True, description="Path to Caffe weights file."),
-            'mxnet_weights': PathField(optional=True, description="Path to MxNet weights file."),
+            'mxnet_weights': PathField(optional=True, description="Path to MXNet weights file."),
             'tf_model': PathField(optional=True, description="Path to TF model file."),
             'tf_meta': PathField(optional=True, description="Path to TF meta file."),
             'onnx_model': PathField(optional=True, description="Path to ONNX model file."),
@@ -197,8 +198,10 @@ class DLSDKLauncher(Launcher):
                 optional=True, is_directory=True, description="TF Object Detection API Config."
             ),
             '_tf_custom_op_config_dir': PathField(
-                optional=True, is_directory=True, description="TF Custom Operation Config."
+                optional=True, is_directory=True, description="TF Custom Operation Config prefix."
             ),
+            '_transformations_config_dir': PathField(
+                optional=True, is_directory=True, description="Transformation config prefix for Model Optimizer"),
             '_tf_obj_detection_api_pipeline_config_path': PathField(
                 optional=True, is_directory=False, description="TF Custom Operation Pipeline Config."),
             '_cpu_extensions_mode': StringField(optional=True, description="CPU extensions mode."),
@@ -219,6 +222,7 @@ class DLSDKLauncher(Launcher):
         dlsdk_launcher_config.validate(self.config)
 
         self._device = self.config['device'].upper()
+        self._device_ids = self._check_device_id()
         self._set_variable = False
         self._prepare_bitstream_firmware(self.config)
         self._delayed_model_loading = delayed_model_loading
@@ -230,7 +234,7 @@ class DLSDKLauncher(Launcher):
                 self._model = self.get_value_from_config('model')
                 self._weights = self.get_value_from_config('weights')
 
-            self.load_network()
+            self.load_network(log=True)
 
         self.allow_reshape_input = self.get_value_from_config('allow_reshape_input')
         self._do_reshape = False
@@ -301,6 +305,18 @@ class DLSDKLauncher(Launcher):
             device = re.sub(NIREQ_REGEX, '', device)
 
         return [platform_.upper().strip() for platform_ in device.split(',')]
+
+    def _check_device_id(self):
+        device_list = self._devices_list()
+        myriad_devices = [device_name for device_name in device_list if device_name.startswith('MYRIAD')]
+        device_ids = []
+        for myriad_device in myriad_devices:
+            device_with_id = myriad_device.split('.')
+            device_ids.append('.'.join(device_with_id[1:]).lower() if len(device_with_id) > 1 else None)
+        for devise_id in device_ids:
+            if devise_id is not None:
+                self._device = self._device.replace('.' + devise_id.upper(), '')
+        return device_ids
 
     def _set_affinity(self, affinity_map_path):
         self.plugin.set_initial_affinity(self.network)
@@ -437,8 +453,12 @@ class DLSDKLauncher(Launcher):
             get_parameter_value_from_config(config, DLSDKLauncher.parameters(), 'mo_params'),
             get_parameter_value_from_config(config, DLSDKLauncher.parameters(), 'mo_flags'),
             get_parameter_value_from_config(config, DLSDKLauncher.parameters(), '_tf_custom_op_config_dir'),
-            get_parameter_value_from_config(config, DLSDKLauncher.parameters(),
-                                            '_tf_obj_detection_api_pipeline_config_path'),
+            get_parameter_value_from_config(
+                config, DLSDKLauncher.parameters(), '_tf_obj_detection_api_pipeline_config_path'
+            ),
+            get_parameter_value_from_config(
+                config, DLSDKLauncher.parameters(), '_transformations_config_dir'
+            ),
             should_log_cmd=should_log_mo_cmd
         )
 
@@ -536,7 +556,10 @@ class DLSDKLauncher(Launcher):
 
             if log:
                 print_info('Loaded {} plugin version: {}'.format(self.plugin.device, self.plugin.version))
-
+        if self._device_ids:
+            correct_id = [device_id for device_id in self._device_ids if device_id is not None]
+            if correct_id:
+                self.plugin.set_config({'DEVICE_ID': correct_id[0]})
         cpu_extensions = self.config.get('cpu_extensions')
         if cpu_extensions and 'CPU' in self._devices_list():
             selection_mode = self.config.get('_cpu_extensions_mode')
@@ -548,7 +571,7 @@ class DLSDKLauncher(Launcher):
         if self._is_vpu():
             log_level = self.config.get('_vpu_log_level')
             if log_level:
-                self.plugin.set_config({'VPU_LOG_LEVEL': log_level})
+                self.plugin.set_config({'LOG_LEVEL': log_level})
 
     def auto_num_requests(self):
         concurrency_device = {
@@ -635,7 +658,7 @@ class DLSDKLauncher(Launcher):
         elif affinity_map_path:
             warning('affinity_map config is applicable only for HETERO device')
 
-    def load_network(self, network=None):
+    def load_network(self, network=None, log=False):
         if hasattr(self, 'exec_network'):
             del self.exec_network
         if not hasattr(self, 'plugin'):
@@ -644,12 +667,15 @@ class DLSDKLauncher(Launcher):
             self._create_network()
         else:
             self.network = network
+        self._set_precision()
+        if log:
+            self._print_input_output_info()
         self.exec_network = self.plugin.load(network=self.network, num_requests=self.num_requests)
 
-    def load_ir(self, xml_path, bin_path):
+    def load_ir(self, xml_path, bin_path, log=False):
         self._model = xml_path
         self._weights = bin_path
-        self.load_network()
+        self.load_network(log=log)
 
     @staticmethod
     def create_ie_network(model_xml, model_bin):
@@ -661,7 +687,7 @@ class DLSDKLauncher(Launcher):
             if layer_name not in self.const_inputs + self.image_info_inputs
         }
 
-    def fit_to_input(self, data, layer_name, layout):
+    def fit_to_input(self, data, layer_name, layout, precision):
         def data_to_blob(layer_shape, data):
             data_shape = np.shape(data)
             if len(layer_shape) == 4:
@@ -679,6 +705,8 @@ class DLSDKLauncher(Launcher):
         layer_shape = tuple(self.inputs[layer_name].shape)
 
         data = data_to_blob(layer_shape, data)
+        if precision:
+            data = data.astype(precision)
 
         data_shape = np.shape(data)
         if data_shape != layer_shape:
@@ -687,6 +715,24 @@ class DLSDKLauncher(Launcher):
                 return data
 
         return self._align_data_shape(data, layer_name)
+
+    def _set_precision(self):
+        config_inputs = self.config.get('inputs', [])
+        for input_config in config_inputs:
+            if 'precision' in input_config:
+                self.network.inputs[input_config['name']].precision = input_config['precision']
+
+    def _print_input_output_info(self):
+        print_info('Input info:')
+        for name, input_info in self.network.inputs.items():
+            print_info('\tLayer name: {}'.format(name))
+            print_info('\tprecision: {}'.format(input_info.precision))
+            print_info('\tshape {}\n'.format(input_info.shape))
+        print_info('Output info')
+        for name, output_info in self.network.outputs.items():
+            print_info('\tLayer name: {}'.format(name))
+            print_info('\tprecision: {}'.format(output_info.precision))
+            print_info('\tshape {}\n'.format(output_info.shape))
 
     def release(self):
         if 'network' in self.__dict__:

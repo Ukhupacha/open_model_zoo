@@ -77,6 +77,7 @@ class ModelEvaluator:
             check_progress=False,
             dataset_tag='',
             output_callback=None,
+            allow_pairwise_subset=False,
             **kwargs
     ):
 
@@ -88,9 +89,9 @@ class ModelEvaluator:
 
         def _create_subset(subset, num_images):
             if subset is not None:
-                self.dataset.make_subset(ids=subset)
+                self.dataset.make_subset(ids=subset, accept_pairs=allow_pairwise_subset)
             elif num_images is not None:
-                self.dataset.make_subset(end=num_images)
+                self.dataset.make_subset(end=num_images, accept_pairs=allow_pairwise_subset)
 
         def _set_number_infer_requests(nreq):
             if nreq is None:
@@ -103,10 +104,13 @@ class ModelEvaluator:
 
         if self.launcher.allow_reshape_input or self.preprocessor.has_multi_infer_transformations:
             warning('Model can not to be processed in async mode. Switched to sync.')
-            return self.process_dataset(subset, num_images, check_progress, dataset_tag, output_callback, **kwargs)
+            return self.process_dataset(
+                subset, num_images, check_progress, dataset_tag, output_callback, allow_pairwise_subset, **kwargs
+            )
         _set_number_infer_requests(nreq)
 
         self.dataset.batch = self.launcher.batch
+        self.preprocessor.input_shapes = self.launcher.inputs_info_for_meta()
         progress_reporter = None
 
         _create_subset(subset, num_images)
@@ -187,17 +191,19 @@ class ModelEvaluator:
             check_progress=False,
             dataset_tag='',
             output_callback=None,
+            allow_pairwise_subset=False,
             **kwargs
     ):
         def _create_subset(subset, num_images):
             if subset is not None:
-                self.dataset.make_subset(ids=subset)
+                self.dataset.make_subset(ids=subset, accept_pairs=allow_pairwise_subset)
             elif num_images is not None:
-                self.dataset.make_subset(end=num_images)
+                self.dataset.make_subset(end=num_images, accept_pairs=allow_pairwise_subset)
 
         if self.dataset is None or (dataset_tag and self.dataset.tag != dataset_tag):
             self.select_dataset(dataset_tag)
         self.dataset.batch = self.launcher.batch
+        self.preprocessor.input_shapes = self.launcher.inputs_info_for_meta()
         progress_reporter = None
 
         _create_subset(subset, num_images)
@@ -332,10 +338,26 @@ class ModelEvaluator:
     def get_network(self):
         return self.launcher.network
 
-    def get_metrics_direction(self):
+    def get_metrics_attributes(self):
         if not self.metric_executor:
             return {}
-        return self.metric_executor.get_metrics_direction()
+        return self.metric_executor.get_metrics_attributes()
+
+    def register_metric(self, metric_config):
+        if isinstance(metric_config, str):
+            self.metric_executor.register_metric({'type': metric_config})
+        elif isinstance(metric_config, dict):
+            self.metric_executor.register_metric(metric_config)
+        else:
+            raise ValueError('Unsupported metric configuration type {}'.format(type(metric_config)))
+
+    def register_postprocessor(self, postprocessing_config):
+        if isinstance(postprocessing_config, str):
+            self.postprocessor.register_postprocessor({'type': postprocessing_config})
+        elif isinstance(postprocessing_config, dict):
+            self.postprocessor.register_postprocessor(postprocessing_config)
+        else:
+            raise ValueError('Unsupported post-processor configuration type {}'.format(type(postprocessing_config)))
 
     def reset(self):
         if self.metric_executor:

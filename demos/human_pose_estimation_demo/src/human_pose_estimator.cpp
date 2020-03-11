@@ -34,10 +34,7 @@ HumanPoseEstimator::HumanPoseEstimator(const std::string& modelPath,
         ie.SetConfig({{InferenceEngine::PluginConfigParams::KEY_PERF_COUNT,
                        InferenceEngine::PluginConfigParams::YES}});
     }
-    netReader.ReadNetwork(modelPath);
-    std::string binFileName = fileNameNoExt(modelPath) + ".bin";
-    netReader.ReadWeights(binFileName);
-    network = netReader.getNetwork();
+    network = ie.ReadNetwork(modelPath);
 
     const auto& inputInfo = network.getInputsInfo();
 
@@ -97,15 +94,15 @@ HumanPoseEstimator::HumanPoseEstimator(const std::string& modelPath,
     }
 
     executableNetwork = ie.LoadNetwork(network, targetDeviceName);
-    request_next = executableNetwork.CreateInferRequestPtr();
-    request_curr = executableNetwork.CreateInferRequestPtr();
+    requestNext = executableNetwork.CreateInferRequestPtr();
+    requestCurr = executableNetwork.CreateInferRequestPtr();
 }
 
 void HumanPoseEstimator::reshape(const cv::Mat& image){
     CV_Assert(image.type() == CV_8UC3);
 
     imageSize = image.size();
-    if (inputWidthIsChanged(imageSize)){
+    if (inputWidthIsChanged(imageSize)) {
         auto input_shapes = network.getInputShapes();
         std::string input_name;
         InferenceEngine::SizeVector input_shape;
@@ -115,36 +112,36 @@ void HumanPoseEstimator::reshape(const cv::Mat& image){
         input_shapes[input_name] = input_shape;
         network.reshape(input_shapes);
         executableNetwork = ie.LoadNetwork(network, targetDeviceName);
-        request_next = executableNetwork.CreateInferRequestPtr();
-        request_curr = executableNetwork.CreateInferRequestPtr();
+        requestNext = executableNetwork.CreateInferRequestPtr();
+        requestCurr = executableNetwork.CreateInferRequestPtr();
         std::cout << "Reshape needed" << std::endl;
     }
 }
 
-void HumanPoseEstimator::frameToBlob_curr(const cv::Mat& image) {
+void HumanPoseEstimator::frameToBlobCurr(const cv::Mat& image) {
     CV_Assert(image.type() == CV_8UC3);
-    InferenceEngine::Blob::Ptr input = request_curr->GetBlob(network.getInputsInfo().begin()->first);
-    auto buffer =input->buffer().as<InferenceEngine::PrecisionTrait<InferenceEngine::Precision::U8>::value_type *>();
+    InferenceEngine::Blob::Ptr input = requestCurr->GetBlob(network.getInputsInfo().begin()->first);
+    auto buffer = input->buffer().as<InferenceEngine::PrecisionTrait<InferenceEngine::Precision::U8>::value_type *>();
     preprocess(image, buffer);
 }
 
-void HumanPoseEstimator::frameToBlob_next(const cv::Mat& image) {
+void HumanPoseEstimator::frameToBlobNext(const cv::Mat& image) {
     CV_Assert(image.type() == CV_8UC3);
-    InferenceEngine::Blob::Ptr input = request_next->GetBlob(network.getInputsInfo().begin()->first);
-    auto buffer =input->buffer().as<InferenceEngine::PrecisionTrait<InferenceEngine::Precision::U8>::value_type *>();
+    InferenceEngine::Blob::Ptr input = requestNext->GetBlob(network.getInputsInfo().begin()->first);
+    auto buffer = input->buffer().as<InferenceEngine::PrecisionTrait<InferenceEngine::Precision::U8>::value_type *>();
     preprocess(image, buffer);
 }
 
 void HumanPoseEstimator::startCurr() {
-    request_curr->StartAsync();
+    requestCurr->StartAsync();
 }
 
 void HumanPoseEstimator::startNext() {
-    request_next->StartAsync();
+    requestNext->StartAsync();
 }
 
 bool HumanPoseEstimator::readyCurr() {
-    if (InferenceEngine::OK == request_curr->Wait(InferenceEngine::IInferRequest::WaitMode::RESULT_READY)) {
+    if (InferenceEngine::OK == requestCurr->Wait(InferenceEngine::IInferRequest::WaitMode::RESULT_READY)) {
         return true;
     } else {
         return false;
@@ -152,14 +149,12 @@ bool HumanPoseEstimator::readyCurr() {
 }
 
 void HumanPoseEstimator::swapRequest() {
-    request_curr.swap(request_next);
+    requestCurr.swap(requestNext);
 }
 
-std::vector<HumanPose> HumanPoseEstimator::estimateCurr() {
-
-    InferenceEngine::Blob::Ptr pafsBlob = request_curr->GetBlob(pafsBlobName);
-    InferenceEngine::Blob::Ptr heatMapsBlob = request_curr->GetBlob(heatmapsBlobName);
-    CV_Assert(heatMapsBlob->getTensorDesc().getDims()[1] == keypointsNumber + 1);
+std::vector<HumanPose> HumanPoseEstimator::postprocessCurr() {
+    InferenceEngine::Blob::Ptr pafsBlob = requestCurr->GetBlob(pafsBlobName);
+    InferenceEngine::Blob::Ptr heatMapsBlob = requestCurr->GetBlob(heatmapsBlobName);
     InferenceEngine::SizeVector heatMapDims = heatMapsBlob->getTensorDesc().getDims();
     std::vector<HumanPose> poses = postprocess(
             heatMapsBlob->buffer(),
@@ -314,7 +309,7 @@ HumanPoseEstimator::~HumanPoseEstimator() {
     try {
         if (enablePerformanceReport) {
             std::cout << "Performance counts for " << modelPath << std::endl << std::endl;
-            printPerformanceCounts(*request_curr, std::cout, getFullDeviceName(ie, targetDeviceName), false);
+            printPerformanceCounts(*requestCurr, std::cout, getFullDeviceName(ie, targetDeviceName), false);
         }
     }
     catch (...) {

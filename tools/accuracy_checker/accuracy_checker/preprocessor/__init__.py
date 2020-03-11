@@ -20,8 +20,6 @@ from .color_space_conversion import BgrToRgb, RgbToBgr, BgrToGray, RgbToGray, Tf
 from .normalization import Normalize, Normalize3d
 from .geometric_transformations import (
     GeometricOperationMetadata,
-    Resize,
-    AutoResize,
     Flip,
     Crop,
     CropRect,
@@ -29,9 +27,13 @@ from .geometric_transformations import (
     PointAligner,
     Tiling,
     Crop3D,
+    TransformedCropWithAutoScale,
     ImagePyramid
 )
+from .resize import Resize, AutoResize
 from .nlp_preprocessors import DecodeByVocabulary, PadWithEOS
+from .centernet_preprocessing import CenterNetAffineTransformation
+from .brats_preprocessing import Resize3D, NormalizeBrats, CropBraTS, SwapModalitiesBrats
 
 __all__ = [
     'PreprocessingExecutor',
@@ -40,6 +42,7 @@ __all__ = [
     'GeometricOperationMetadata',
 
     'Resize',
+    'Resize3D',
     'AutoResize',
     'Flip',
     'Crop',
@@ -48,8 +51,9 @@ __all__ = [
     'PointAligner',
     'Tiling',
     'Crop3D',
+    'CropBraTS',
+    'TransformedCropWithAutoScale',
     'ImagePyramid',
-
     'BgrToGray',
     'BgrToRgb',
     'RgbToGray',
@@ -58,7 +62,12 @@ __all__ = [
 
     'Normalize3d',
     'Normalize',
+    'NormalizeBrats',
+
+    'SwapModalitiesBrats',
 
     'DecodeByVocabulary',
-    'PadWithEOS'
+    'PadWithEOS',
+
+    'CenterNetAffineTransformation'
 ]

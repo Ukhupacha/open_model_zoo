@@ -15,6 +15,7 @@
 #include <mqtt.h>
 #define APPLICATION_TOPIC "HumanPose"
 
+#include <monitors/presenter.h>
 #include <samples/ocv_common.hpp>
 
 #include "human_pose_estimation_demo.hpp"
@@ -84,11 +85,13 @@ int main(int argc, char* argv[]) {
         }
         std::cout << std::endl;
 
+        cv::Size graphSize{static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH) / 4), 60};
+        Presenter presenter(FLAGS_u, static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT)) - graphSize.height - 10, graphSize);
         std::vector<HumanPose> poses;
         bool isLastFrame = false;
         bool isAsyncMode = false; // execution is always started in SYNC mode
         bool isModeChanged = false; // set to true when execution mode is changed (SYNC<->ASYNC)
-
+        bool blackBackground = FLAGS_black;
         typedef std::chrono::duration<double, std::ratio<1, 1000>> ms;
         auto total_t0 = std::chrono::high_resolution_clock::now();
         auto wallclock = std::chrono::high_resolution_clock::now();
@@ -96,6 +99,7 @@ int main(int argc, char* argv[]) {
         int frame = 0;
 
         while (true) {
+            auto t0 = std::chrono::high_resolution_clock::now();
             //here is the first asynchronus point:
             //in the async mode we capture frame to populate the NEXT infer request
             //in the regular mode we capture frame to the current infer request
@@ -107,20 +111,18 @@ int main(int argc, char* argv[]) {
                     throw std::logic_error("Failed to get frame from cv::VideoCapture");
                 }
             }
-            auto t0 = std::chrono::high_resolution_clock::now();
             if (isAsyncMode) {
                 if (isModeChanged) {
-                    estimator.frameToBlob_curr(curr_frame);
+                    estimator.frameToBlobCurr(curr_frame);
                 }
                 if (!isLastFrame) {
-                    estimator.frameToBlob_next(next_frame);
+                    estimator.frameToBlobNext(next_frame);
                 }
             } else if (!isModeChanged) {
-                estimator.frameToBlob_curr(curr_frame);
+                estimator.frameToBlobCurr(curr_frame);
             }
             auto t1 = std::chrono::high_resolution_clock::now();
             decode_time = std::chrono::duration_cast<ms>(t1 - t0).count();
-
             t0 = std::chrono::high_resolution_clock::now();
             // Main sync point:
             // in the trully Async mode we start the NEXT infer request, while waiting for the CURRENT to complete
@@ -146,18 +148,21 @@ int main(int argc, char* argv[]) {
                 t0 = std::chrono::high_resolution_clock::now();
 
                 if (!FLAGS_no_show) {
-                    if (FLAGS_black){
+                    if (blackBackground) {
                         curr_frame = cv::Mat::zeros(curr_frame.size(), curr_frame.type());
                     }
                     std::ostringstream out;
                     out << "OpenCV cap/render time: " << std::fixed << std::setprecision(2)
-                    << (decode_time + render_time) << " ms";
+                        << (decode_time + render_time) << " ms";
 
-                    cv::putText(curr_frame, out.str(), cv::Point2f(0, 25), cv::FONT_HERSHEY_TRIPLEX, 0.6, cv::Scalar(0, 255, 0));
+                    cv::putText(curr_frame, out.str(), cv::Point2f(0, 25),
+                                cv::FONT_HERSHEY_TRIPLEX, 0.6, cv::Scalar(0, 255, 0));
                     out.str("");
                     out << "Wallclock time " << (isAsyncMode ? "(TRUE ASYNC):      " : "(SYNC, press Tab): ");
-                    out << std::fixed << std::setprecision(2) << wall.count() << " ms (" << 1000.f / wall.count() << " fps)";
-                    cv::putText(curr_frame, out.str(), cv::Point2f(0, 50), cv::FONT_HERSHEY_TRIPLEX, 0.6, cv::Scalar(0, 0, 255));
+                    out << std::fixed << std::setprecision(2) << wall.count()
+                        << " ms (" << 1000.f / wall.count() << " fps)";
+                    cv::putText(curr_frame, out.str(), cv::Point2f(0, 50),
+                                cv::FONT_HERSHEY_TRIPLEX, 0.6, cv::Scalar(0, 0, 255));
                     if (!isAsyncMode) {  // In the true async mode, there is no way to measure detection time directly
                         out.str("");
                         out << "Detection time  : " << std::fixed << std::setprecision(2) << detection.count()
@@ -168,7 +173,7 @@ int main(int argc, char* argv[]) {
                     }
                 }
 
-                poses = estimator.estimateCurr();
+                poses = estimator.postprocessCurr();
 
                 if (FLAGS_r) {
                     sendHumanPose(frame, mqtt_human_pose, poses);
@@ -176,8 +181,9 @@ int main(int argc, char* argv[]) {
                 }
 
                 if (!FLAGS_no_show) {
+                    presenter.drawGraphs(curr_frame);
                     renderHumanPose(poses, curr_frame);
-                    cv::imshow("ICV Human Pose Estimation on " + FLAGS_d, curr_frame);
+                    cv::imshow("Human Pose Estimation on " + FLAGS_d, curr_frame);
                     t1 = std::chrono::high_resolution_clock::now();
                     render_time = std::chrono::duration_cast<ms>(t1 - t0).count();
                 }
@@ -208,15 +214,15 @@ int main(int argc, char* argv[]) {
                 isAsyncMode ^= true;
                 isModeChanged = true;
             } else if (32 == key) { // Space
-                FLAGS_black ^= true;
+                blackBackground ^= true;
             }
+            presenter.handleKey(key);
         }
 
-        // -----------------------------------------------------------------------------------------------------
         auto total_t1 = std::chrono::high_resolution_clock::now();
         ms total = std::chrono::duration_cast<ms>(total_t1 - total_t0);
         std::cout << "Total Inference time: " << total.count() << std::endl;
-
+        std::cout << presenter.reportMeans() << '\n';
     }
     catch (const std::exception& error) {
         std::cerr << "[ ERROR ] " << error.what() << std::endl;

@@ -38,10 +38,10 @@ Options:
     -no_show                   Optional. Do not show processed video.
     -black                     Optional. Show black background.
     -r                         Optional. Output inference results as raw values.
+    -u                         Optional. List of monitors to show initially.
     -client                    Optional. MQTT Client id.
     -broker                    Optional. MQTT Broker address.
     -port                      Optional. MOTT port.
-
 ```
 
 Running the application with an empty list of options yields an error message.
