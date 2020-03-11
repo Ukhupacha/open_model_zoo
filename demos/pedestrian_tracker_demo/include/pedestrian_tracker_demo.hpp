@@ -41,10 +41,7 @@ static const char first_frame_message[] = "Optional. The index of the first fram
                                            "number.";
 static const char last_frame_message[] = "Optional. The index of the last frame of video sequence to process. "\
                                           "This has effect only if it is positive.";
-
-/// @brief Message list of monitors to show
 static const char utilization_monitors_message[] = "Optional. List of monitors to show initially.";
-
 
 DEFINE_bool(h, false, help_message);
 DEFINE_string(i, "", video_message);
@@ -61,9 +58,9 @@ DEFINE_int32(delay, 3, delay_message);
 DEFINE_string(out, "", output_log_message);
 DEFINE_int32(first, -1, first_frame_message);
 DEFINE_int32(last, -1, last_frame_message);
-
-/// \brief Define a flag to show monitors<br>
-/// It is an optional parameter
+DEFINE_string(broker, "localhost", broker_mqtt_message);
+DEFINE_string(client, "Demo", client_mqtt_message);
+DEFINE_int32(port, 1883, port_mqtt_message);
 DEFINE_string(u, "", utilization_monitors_message);
 
 
