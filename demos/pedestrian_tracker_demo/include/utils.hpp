@@ -14,7 +14,7 @@
 #include <utility>
 #include <deque>
 #include <map>
-#include <mqtt.h>
+#include <mqtt/mqtt.h>
 
 #include <samples/common.hpp>
 

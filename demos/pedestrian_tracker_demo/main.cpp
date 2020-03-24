@@ -21,7 +21,7 @@
 #include <memory>
 #include <string>
 #include <gflags/gflags.h>
-#include <mqtt.h>
+#include <mqtt/mqtt.h>
 #define APPLICATION_TOPIC "Tracker"
 
 using namespace InferenceEngine;

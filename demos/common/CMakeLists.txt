@@ -4,3 +4,4 @@
 
 add_subdirectory(format_reader)
 add_subdirectory(monitors)
+add_subdirectory(mqtt)

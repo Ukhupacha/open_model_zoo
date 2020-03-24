@@ -12,7 +12,7 @@
 #include <chrono>
 
 #include <inference_engine.hpp>
-#include <mqtt.h>
+#include <mqtt/mqtt.h>
 #define APPLICATION_TOPIC "HumanPose"
 
 #include <monitors/presenter.h>
