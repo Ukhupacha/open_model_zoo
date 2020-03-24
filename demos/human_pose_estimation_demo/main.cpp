@@ -122,8 +122,7 @@ int main(int argc, char* argv[]) {
                 estimator.frameToBlobCurr(curr_frame);
             }
             auto t1 = std::chrono::high_resolution_clock::now();
-            double decode_time = std::chrono::duration_cast<ms>(t1 - t0).count();
-
+            decode_time = std::chrono::duration_cast<ms>(t1 - t0).count();
             t0 = std::chrono::high_resolution_clock::now();
             // Main sync point:
             // in the trully Async mode we start the NEXT infer request, while waiting for the CURRENT to complete
