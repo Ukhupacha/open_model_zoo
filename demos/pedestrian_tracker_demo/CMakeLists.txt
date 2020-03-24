@@ -12,3 +12,5 @@ ie_add_sample(NAME pedestrian_tracker_demo
               DEPENDENCIES monitors
               DEPENDENCIES mqtt
               OPENCV_DEPENDENCIES highgui)
+
+target_link_libraries(pedestrian_tracker_demo PRIVATE ngraph::ngraph)
