@@ -66,7 +66,7 @@ if __name__ == '__main__':
 
     stride = 8
     inference_engine = InferenceEngine(args.model, args.device, stride)
-    canvas_3d = np.zeros((720, 1280, 3), dtype=np.uint8)
+    canvas_3d = np.zeros((72*2, 128*2, 3), dtype=np.uint8)
     plotter = Plotter3d(canvas_3d.shape[:2])
     canvas_3d_window_name = 'Canvas 3D'
     if not args.no_show:
