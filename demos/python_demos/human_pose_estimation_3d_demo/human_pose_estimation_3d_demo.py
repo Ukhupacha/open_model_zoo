@@ -119,6 +119,7 @@ if __name__ == '__main__':
         inference_result = inference_engine.infer(scaled_img)
         poses_3d, poses_2d = parse_poses(inference_result, input_scale, stride, fx, is_video)
         edges = []
+        poses_sent = {}
         if len(poses_3d) > 0:
             poses_3d = rotate_poses(poses_3d, R, t)
             poses_3d_copy = poses_3d.copy()
@@ -134,7 +135,7 @@ if __name__ == '__main__':
         plotter.plot(canvas_3d, poses_3d, edges)
 
         draw_poses(frame, poses_2d)
-        if not args.no_send:
+        if (not args.no_send) and (not poses_sent):
             poses_2d_sent = [poses_2d[i] for i in poses_sent.keys()]
             draw_poses(frame, poses_2d_sent, color=(0, 0, 255))
         current_time = (cv2.getTickCount() - current_time) / cv2.getTickFrequency()
