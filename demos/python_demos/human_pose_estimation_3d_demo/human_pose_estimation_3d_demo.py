@@ -62,9 +62,9 @@ if __name__ == '__main__':
     args.add_argument('--fx', type=np.float32, default=-1, help='Optional. Camera focal length.')
     args.add_argument('--no_show', help='Optional. Do not display output.', action='store_true')
     args.add_argument('--no_send', help='Optional. Do not send MQTT message', action='store_true')
-    args.add_argument('--client', default='Demo', help='Optional. MQTT client.', action='store_true')
-    args.add_argument('--broker', default='localhost', help='Optional. MQTT broker.', action='store_true')
-    args.add_argument('--port', default=1883, help='Optional. MQTT port ', action='store_true')
+    args.add_argument('--client', default='Demo', type=str, help='Optional. MQTT client.')
+    args.add_argument('--broker', default='localhost', type=str, help='Optional. MQTT broker.')
+    args.add_argument('--port', default=1883, type=int, help='Optional. MQTT port ')
     args = parser.parse_args()
 
     if args.input == '':
