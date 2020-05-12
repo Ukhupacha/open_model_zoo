@@ -19,10 +19,12 @@ import os
 import cv2
 import numpy as np
 
+import paho.mqtt.client as mqtt
 from modules.inference_engine import InferenceEngine
 from modules.input_reader import InputReader
 from modules.draw import Plotter3d, draw_poses
 from modules.parse_poses import parse_poses
+from modules.mqtt import on_publish, on_connect, send_poses
 
 
 def rotate_poses(poses_3d, R, t):
@@ -59,6 +61,10 @@ if __name__ == '__main__':
                       type=str, default=None)
     args.add_argument('--fx', type=np.float32, default=-1, help='Optional. Camera focal length.')
     args.add_argument('--no_show', help='Optional. Do not display output.', action='store_true')
+    args.add_argument('--no_send', help='Optional. Do not send MQTT message', action='store_true')
+    args.add_argument('--client', default='Demo', help='Optional. MQTT client.', action='store_true')
+    args.add_argument('--broker', default='localhost', help='Optional. MQTT broker.', action='store_true')
+    args.add_argument('--port', default=1883, help='Optional. MQTT port ', action='store_true')
     args = parser.parse_args()
 
     if args.input == '':
@@ -91,7 +97,19 @@ if __name__ == '__main__':
     p_code = 112
     space_code = 32
     mean_time = 0
+
+    client1 = mqtt.Client(args.client)
+    topic = 'OpenVINO/HumanPose3D/' + args.client
+    print(topic)
+    if not args.no_send:
+        client1.on_connect = on_connect
+        client1.on_publish = on_publish
+        client1.connect(args.broker, args.port, 60)
+        client1.loop_start()
+
+    frame_number = -1
     for frame in frame_provider:
+        frame_number += 1
         current_time = cv2.getTickCount()
         input_scale = base_height / frame.shape[0]
         scaled_img = cv2.resize(frame, dsize=None, fx=input_scale, fy=input_scale)
@@ -110,10 +128,15 @@ if __name__ == '__main__':
             poses_3d[:, 0::4], poses_3d[:, 1::4], poses_3d[:, 2::4] = -z, x, -y
 
             poses_3d = poses_3d.reshape(poses_3d.shape[0], 19, -1)[:, :, 0:3]
+            if not args.no_send:
+                poses_sent = send_poses(client1, topic, frame_number, poses_3d)
             edges = (Plotter3d.SKELETON_EDGES + 19 * np.arange(poses_3d.shape[0]).reshape((-1, 1, 1))).reshape((-1, 2))
         plotter.plot(canvas_3d, poses_3d, edges)
 
         draw_poses(frame, poses_2d)
+        if not args.no_send:
+            poses_2d_sent = [poses_2d[i] for i in poses_sent.keys()]
+            draw_poses(frame, poses_2d_sent, color=(0, 0, 255))
         current_time = (cv2.getTickCount() - current_time) / cv2.getTickFrequency()
         if mean_time == 0:
             mean_time = current_time
