@@ -46,7 +46,7 @@ bool ParseAndCheckCommandLine(int argc, char *argv[]) {
 
 int main(int argc, char *argv[]) {
     try {
-        slog::info << "InferenceEngine: " << GetInferenceEngineVersion() << slog::endl;
+        slog::info << "InferenceEngine: " << *GetInferenceEngineVersion() << slog::endl;
         // ------------------------------ Parsing and validation of input args ---------------------------------
         if (!ParseAndCheckCommandLine(argc, argv)) {
             return 0;
@@ -196,7 +196,8 @@ int main(int argc, char *argv[]) {
 
         // --------------------------- 8. Process output -------------------------------------------------------
         const Blob::Ptr outputBlob = inferRequest.GetBlob(firstOutputName);
-        const auto outputData = outputBlob->buffer().as<PrecisionTrait<Precision::FP32>::value_type*>();
+        LockedMemory<const void> outputBlobMapped = as<MemoryBlob>(outputBlob)->rmap();
+        const auto outputData = outputBlobMapped.as<float*>();
 
         size_t numOfImages = outputBlob->getTensorDesc().getDims()[0];
         size_t numOfChannels = outputBlob->getTensorDesc().getDims()[1];
