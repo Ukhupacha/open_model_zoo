@@ -141,14 +141,14 @@ int main(int argc, char **argv) {
         DetectorConfig detector_confid(det_model);
         ObjectDetector pedestrian_detector(detector_confid, ie, detector_mode);
 
-     mqtt *mqtt_tracker;
-     mqtt_tracker = new mqtt(FLAGS_client.c_str(), (char*)APPLICATION_TOPIC, FLAGS_broker.c_str(), FLAGS_port);
-
-    std::vector<std::string> devices{detector_mode, reid_mode};
-    InferenceEngine::Core ie =
-        LoadInferenceEngine(
-            devices, custom_cpu_library, path_to_custom_layers,
-            should_use_perf_counter);
+        bool should_keep_tracking_info = should_save_det_log || should_print_out;
+        std::unique_ptr<PedestrianTracker> tracker =
+            CreatePedestrianTracker(reid_model, ie, reid_mode,
+                                    should_keep_tracking_info);
+        // MQTT publisher
+        mqtt *mqtt_tracker;
+        mqtt_tracker = new mqtt(FLAGS_client.c_str(), (char*)APPLICATION_TOPIC,
+                                FLAGS_broker.c_str(), FLAGS_port);
 
         std::unique_ptr<ImagesCapture> cap = openImagesCapture(FLAGS_i, FLAGS_loop, FLAGS_first, FLAGS_limit);
         double video_fps = cap->fps();
@@ -209,15 +209,16 @@ int main(int argc, char **argv) {
                 presenter.handleKey(k);
             }
 
+            if (should_save_det_log && (frameIdx % 100 == 0)) {
+                DetectionLog log = tracker->GetDetectionLog(true);
+                SaveDetectionLogToTrajFile(detlog_out, log);
+            }
             if (should_print_out)
-                sendTracklet(frame_idx, mqtt_tracker, tracker->TrackedDetections());
-
-            cv::resize(frame, frame, cv::Size(), 0.5, 0.5);
-            cv::imshow("dbg", frame);
-            char k = cv::waitKey(delay);
-            if (k == 27)
-                break;
-            presenter.handleKey(k);
+                sendTracklet(frameIdx, mqtt_tracker, tracker->TrackedDetections());
+            frame = cap->read();
+            if (!frame.data) break;
+            if (frame.size() != firstFrameSize)
+                throw std::runtime_error("Can't track objects on images of different size");
         }
 
         if (should_keep_tracking_info) {
