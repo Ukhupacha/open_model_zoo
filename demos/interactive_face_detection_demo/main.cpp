@@ -307,12 +307,7 @@ int main(int argc, char *argv[]) {
             cv::putText(prev_frame, out.str(), THROUGHPUT_METRIC_POSITION, cv::FONT_HERSHEY_TRIPLEX, 1,
                         cv::Scalar(255, 0, 0), 2);
 
-                if (!FLAGS_no_show) {
-                    cv::imshow("Detection results on " + FLAGS_d, prev_frame);
-                }
-            }
-
-            if (!FLAGS_o.empty()) {
+            if (videoWriter.isOpened()) {
                 videoWriter.write(prev_frame);
             }
 
