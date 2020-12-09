@@ -42,13 +42,8 @@ static const char delay_message[] = "Optional. Delay between frames used for vis
                                      "If zero, the visualization is made frame-by-frame.";
 static const char output_log_message[] = "Optional. The file name to write output log file with results of pedestrian tracking. "
                                           "The format of the log file is compatible with MOTChallenge format.";
-static const char first_frame_message[] = "Optional. The index of the first frame of video sequence to process. "
-                                           "This has effect only if it is positive. The actual first frame captured "
-                                           "depends on cv::VideoCapture implementation and may have slightly different "
-                                           "number.";
-static const char last_frame_message[] = "Optional. The index of the last frame of video sequence to process. "
-                                          "This has effect only if it is positive.";
 static const char utilization_monitors_message[] = "Optional. List of monitors to show initially.";
+
 
 DEFINE_bool(h, false, help_message);
 DEFINE_uint32(first, 0, first_frame_message);
@@ -64,8 +59,6 @@ DEFINE_bool(r, false, raw_output_message);
 DEFINE_bool(no_show, false, no_show_processed_video);
 DEFINE_int32(delay, 3, delay_message);
 DEFINE_string(out, "", output_log_message);
-DEFINE_int32(first, -1, first_frame_message);
-DEFINE_int32(last, -1, last_frame_message);
 DEFINE_string(broker, "localhost", broker_mqtt_message);
 DEFINE_string(client, "Demo", client_mqtt_message);
 DEFINE_int32(port, 1883, port_mqtt_message);
