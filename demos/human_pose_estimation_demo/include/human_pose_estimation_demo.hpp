@@ -22,10 +22,10 @@ static const char no_show_processed_video[] = "Optional. Do not show processed v
 static const char black_background[] = "Optional. Show black background.";
 static const char raw_output_message[] = "Optional. Output inference results as raw values.";
 static const char utilization_monitors_message[] = "Optional. List of monitors to show initially.";
-
 static const char broker_mqtt_message[] = "Optional. MQTT Broker address.";
 static const char client_mqtt_message[] = "Optional. MQTT Client id.";
 static const char port_mqtt_message[] = "Optional. MOTT port.";
+
 DEFINE_bool(h, false, help_message);
 DEFINE_string(m, "", human_pose_estimation_model_message);
 DEFINE_string(d, "CPU", target_device_message);
@@ -34,17 +34,8 @@ DEFINE_bool(no_show, false, no_show_processed_video);
 DEFINE_bool(black, false, black_background);
 DEFINE_bool(r, false, raw_output_message);
 DEFINE_string(u, "", utilization_monitors_message);
-
-// @brief Defines parameter for setting MQTT broker <br>
-/// It is an optional parameter
 DEFINE_string(broker, "localhost", broker_mqtt_message);
-
-/// @brief Defines parameter for MQTT client id <br>
-/// It is an optional parameter
 DEFINE_string(client, "Demo", client_mqtt_message);
-
-/// @brief Defines parameter for the  MQTT port <br>
-/// It is an optional parameter
 DEFINE_int32(port, 1883, port_mqtt_message);
 
 /**

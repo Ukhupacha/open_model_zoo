@@ -60,17 +60,13 @@ int main(int argc, char* argv[]) {
         }
 
         HumanPoseEstimator estimator(FLAGS_m, FLAGS_d, FLAGS_pc);
-
         mqtt *mqtt_human_pose;
         mqtt_human_pose = new mqtt(FLAGS_client.c_str(), (char*)APPLICATION_TOPIC, FLAGS_broker.c_str(), FLAGS_port);
 
-        int delay = 33;
-
-        // read input (video) frame
-        cv::Mat curr_frame; cap >> curr_frame;
-        cv::Mat next_frame;
-        if (!cap.grab()) {
-            throw std::logic_error("Failed to get frame from cv::VideoCapture");
+        std::unique_ptr<ImagesCapture> cap = openImagesCapture(FLAGS_i, FLAGS_loop);
+        cv::Mat curr_frame = cap->read();
+        if (!curr_frame.data) {
+            throw std::runtime_error("Can't read an image from the input");
         }
 
         cv::Size graphSize{curr_frame.cols / 4, 60};
@@ -89,13 +85,13 @@ int main(int argc, char* argv[]) {
         bool isAsyncMode = false; // execution is always started in SYNC mode
         bool isModeChanged = false; // set to true when execution mode is changed (SYNC<->ASYNC)
         bool blackBackground = FLAGS_black;
+
         typedef std::chrono::duration<double, std::ratio<1, 1000>> ms;
         auto total_t0 = std::chrono::high_resolution_clock::now();
         auto wallclock = std::chrono::high_resolution_clock::now();
-        double decode_time = 0, render_time = 0;
+        double render_time = 0;
         int frame = 0;
-
-        while (true) {
+        do {
             auto t0 = std::chrono::high_resolution_clock::now();
             //here is the first asynchronus point:
             //in the async mode we capture frame to populate the NEXT infer request
@@ -113,7 +109,8 @@ int main(int argc, char* argv[]) {
                 estimator.frameToBlobCurr(curr_frame);
             }
             auto t1 = std::chrono::high_resolution_clock::now();
-            decode_time = std::chrono::duration_cast<ms>(t1 - t0).count();
+            double decode_time = std::chrono::duration_cast<ms>(t1 - t0).count();
+
             t0 = std::chrono::high_resolution_clock::now();
             // Main sync point:
             // in the trully Async mode we start the NEXT infer request, while waiting for the CURRENT to complete
@@ -171,12 +168,8 @@ int main(int argc, char* argv[]) {
                     std::cout << timeString;
                     }
 
-                poses = estimator.postprocessCurr();
-
-                if (FLAGS_r) {
-                    sendHumanPose(frame, mqtt_human_pose, poses);
-                    frame++;
-                }
+                sendHumanPose(frame, mqtt_human_pose, poses);
+                frame++;
             }
 
             presenter.drawGraphs(curr_frame);
