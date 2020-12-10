@@ -1,5 +1,5 @@
 """
-Copyright (c) 2019 Intel Corporation
+Copyright (c) 2018-2020 Intel Corporation
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -45,6 +45,12 @@ class ONNXLauncher(Launcher):
             self._inference_session = self.create_inference_session(str(self.model))
             outputs = self._inference_session.get_outputs()
             self.output_names = [output.name for output in outputs]
+            self._input_precisions = {}
+            for input_info in self._inference_session.get_inputs():
+                dtype = input_info.type.replace('tensor(', '').replace(')', '')
+                if dtype == 'float':
+                    dtype += '32'
+                self._input_precisions[input_info.name] = dtype
 
     @classmethod
     def parameters(cls):
@@ -78,7 +84,7 @@ class ONNXLauncher(Launcher):
         if model.is_dir():
             model_list = list(model.glob('{}.onnx'.format(self._model_name)))
             if not model_list:
-                model_list = model.glob('*.onnx')
+                model_list = list(model.glob('*.onnx'))
                 if not model_list:
                     raise ConfigError('Model not found')
             if len(model_list) != 1:
@@ -125,16 +131,17 @@ class ONNXLauncher(Launcher):
 
     def fit_to_input(self, data, layer_name, layout, precision):
         layer_shape = self.inputs[layer_name]
+        input_precision = self._input_precisions.get(layer_name, np.float32) if not precision else precision
         if len(np.shape(data)) == 4:
-            data = np.transpose(data, layout).astype(np.float32 if not precision else precision)
+            data = np.transpose(data, layout).astype(input_precision)
             if len(layer_shape) == 3:
                 if np.shape(data)[0] != 1:
                     raise ValueError('Only for batch size 1 first dimension can be omitted')
-                return data[0]
-            return data
+                return data[0].astype(input_precision)
+            return data.astype(input_precision)
         if len(np.shape(data)) == 5 and len(layout) == 5:
-            return np.transpose(data, layout).astype(np.float32 if not precision else precision)
-        return np.array(data).astype(np.float32 if not precision else precision)
+            return np.transpose(data, layout).astype(input_precision)
+        return np.array(data).astype(input_precision)
 
     def predict_async(self, *args, **kwargs):
         raise ValueError('ONNX Runtime Launcher does not support async mode yet')

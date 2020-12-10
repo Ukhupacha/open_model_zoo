@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
  Copyright (c) 2019 Intel Corporation
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -102,14 +101,14 @@ body_edges = np.array(
      [0, 12], [12, 13], [13, 14]])  # neck - r_hip - r_knee - r_ankle
 
 
-def draw_poses(img, poses_2d, color=(255, 255, 0)):
+def draw_poses(img, poses_2d):
     for pose in poses_2d:
         pose = np.array(pose[0:-1]).reshape((-1, 3)).transpose()
         was_found = pose[2] > 0
         for edge in body_edges:
             if was_found[edge[0]] and was_found[edge[1]]:
                 cv2.line(img, tuple(pose[0:2, edge[0]].astype(np.int32)), tuple(pose[0:2, edge[1]].astype(np.int32)),
-                         color, 4, cv2.LINE_AA)
+                         (255, 255, 0), 4, cv2.LINE_AA)
         for kpt_id in range(pose.shape[1]):
             if pose[2, kpt_id] != -1:
                 cv2.circle(img, tuple(pose[0:2, kpt_id].astype(np.int32)), 3, (0, 255, 255), -1, cv2.LINE_AA)

@@ -121,14 +121,18 @@ void HumanPoseEstimator::reshape(const cv::Mat& image){
 void HumanPoseEstimator::frameToBlobCurr(const cv::Mat& image) {
     CV_Assert(image.type() == CV_8UC3);
     InferenceEngine::Blob::Ptr input = requestCurr->GetBlob(network.getInputsInfo().begin()->first);
-    auto buffer = input->buffer().as<InferenceEngine::PrecisionTrait<InferenceEngine::Precision::U8>::value_type *>();
+    InferenceEngine::LockedMemory<void> requestCurrBlobMapped =
+        InferenceEngine::as<InferenceEngine::MemoryBlob>(input)->wmap();
+    auto buffer = requestCurrBlobMapped.as<uint8_t *>();
     preprocess(image, buffer);
 }
 
 void HumanPoseEstimator::frameToBlobNext(const cv::Mat& image) {
     CV_Assert(image.type() == CV_8UC3);
     InferenceEngine::Blob::Ptr input = requestNext->GetBlob(network.getInputsInfo().begin()->first);
-    auto buffer = input->buffer().as<InferenceEngine::PrecisionTrait<InferenceEngine::Precision::U8>::value_type *>();
+    InferenceEngine::LockedMemory<void> requestNextBlobMapped =
+        InferenceEngine::as<InferenceEngine::MemoryBlob>(input)->wmap();
+    auto buffer = requestNextBlobMapped.as<uint8_t *>();
     preprocess(image, buffer);
 }
 
@@ -140,11 +144,9 @@ void HumanPoseEstimator::startNext() {
     requestNext->StartAsync();
 }
 
-bool HumanPoseEstimator::readyCurr() {
-    if (InferenceEngine::OK == requestCurr->Wait(InferenceEngine::IInferRequest::WaitMode::RESULT_READY)) {
-        return true;
-    } else {
-        return false;
+void HumanPoseEstimator::waitCurr() {
+    if (InferenceEngine::OK != requestCurr->Wait(InferenceEngine::IInferRequest::WaitMode::RESULT_READY)) {
+        throw std::runtime_error("Waiting for inference results error");
     }
 }
 
@@ -156,11 +158,16 @@ std::vector<HumanPose> HumanPoseEstimator::postprocessCurr() {
     InferenceEngine::Blob::Ptr pafsBlob = requestCurr->GetBlob(pafsBlobName);
     InferenceEngine::Blob::Ptr heatMapsBlob = requestCurr->GetBlob(heatmapsBlobName);
     InferenceEngine::SizeVector heatMapDims = heatMapsBlob->getTensorDesc().getDims();
+
+    InferenceEngine::LockedMemory<const void> heatMapsBlobMapped =
+        InferenceEngine::as<InferenceEngine::MemoryBlob>(heatMapsBlob)->rmap();
+    InferenceEngine::LockedMemory<const void> pafsBlobMapped =
+        InferenceEngine::as<InferenceEngine::MemoryBlob>(pafsBlob)->rmap();
     std::vector<HumanPose> poses = postprocess(
-            heatMapsBlob->buffer(),
+            heatMapsBlobMapped.as<float*>(),
             heatMapDims[2] * heatMapDims[3],
             keypointsNumber,
-            pafsBlob->buffer(),
+            pafsBlobMapped.as<float*>(),
             heatMapDims[2] * heatMapDims[3],
             pafsBlob->getTensorDesc().getDims()[1],
             heatMapDims[3], heatMapDims[2], imageSize);
@@ -176,7 +183,6 @@ void HumanPoseEstimator::preprocess(const cv::Mat& image, uint8_t* buffer) const
     cv::copyMakeBorder(resizedImage, paddedImage, pad(0), pad(2), pad(1), pad(3),
                        cv::BORDER_CONSTANT, meanPixel);
     std::vector<cv::Mat> planes(3);
-    cv::split(paddedImage, planes);
     for (size_t pId = 0; pId < planes.size(); pId++) {
         planes[pId] = cv::Mat(inputLayerSize, CV_8UC1, buffer + pId * inputLayerSize.area());
     }

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
  Copyright (c) 2019 Intel Corporation
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,6 +15,7 @@
 from argparse import ArgumentParser, SUPPRESS
 import json
 import os
+import sys
 
 import cv2
 import numpy as np
@@ -25,6 +26,9 @@ from modules.input_reader import InputReader
 from modules.draw import Plotter3d, draw_poses
 from modules.parse_poses import parse_poses
 from modules.mqtt import on_publish, on_connect, send_poses
+
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'common'))
+import monitors
 
 
 def rotate_poses(poses_3d, R, t):
@@ -65,6 +69,8 @@ if __name__ == '__main__':
     args.add_argument('--client', default='Demo', type=str, help='Optional. MQTT client.')
     args.add_argument('--broker', default='localhost', type=str, help='Optional. MQTT broker.')
     args.add_argument('--port', default=1883, type=int, help='Optional. MQTT port ')
+    args.add_argument("-u", "--utilization_monitors", default='', type=str,
+                      help="Optional. List of monitors to show initially.")
     args = parser.parse_args()
 
     if args.input == '':
@@ -72,7 +78,7 @@ if __name__ == '__main__':
 
     stride = 8
     inference_engine = InferenceEngine(args.model, args.device, stride)
-    canvas_3d = np.zeros((72*2, 128*2, 3), dtype=np.uint8)
+    canvas_3d = np.zeros((72 * 2, 128 * 2, 3), dtype=np.uint8)
     plotter = Plotter3d(canvas_3d.shape[:2])
     canvas_3d_window_name = 'Canvas 3D'
     if not args.no_show:
@@ -97,7 +103,6 @@ if __name__ == '__main__':
     p_code = 112
     space_code = 32
     mean_time = 0
-
     client1 = mqtt.Client(args.client)
     topic = 'OpenVINO/HumanPose3D/' + args.client
     print(topic)
@@ -106,7 +111,7 @@ if __name__ == '__main__':
         client1.on_publish = on_publish
         client1.connect(args.broker, args.port, 60)
         client1.loop_start()
-
+    presenter = monitors.Presenter(args.utilization_monitors, 0)
     frame_number = -1
     for frame in frame_provider:
         frame_number += 1
@@ -134,10 +139,8 @@ if __name__ == '__main__':
             edges = (Plotter3d.SKELETON_EDGES + 19 * np.arange(poses_3d.shape[0]).reshape((-1, 1, 1))).reshape((-1, 2))
         plotter.plot(canvas_3d, poses_3d, edges)
 
+        presenter.drawGraphs(frame)
         draw_poses(frame, poses_2d)
-        if (not args.no_send) and (not poses_sent):
-            poses_2d_sent = [poses_2d[i] for i in poses_sent.keys()]
-            draw_poses(frame, poses_2d_sent, color=(0, 0, 255))
         current_time = (cv2.getTickCount() - current_time) / cv2.getTickFrequency()
         if mean_time == 0:
             mean_time = current_time
@@ -158,6 +161,8 @@ if __name__ == '__main__':
                 delay = 0
             else:
                 delay = 1
+        else:
+            presenter.handleKey(key)
         if delay == 0 or not is_video:  # allow to rotate 3D canvas while on pause
             key = 0
             while (key != p_code
@@ -170,3 +175,4 @@ if __name__ == '__main__':
                 break
             else:
                 delay = 1
+    print(presenter.reportMeans())

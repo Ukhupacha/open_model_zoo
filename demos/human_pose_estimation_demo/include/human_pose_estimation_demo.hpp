@@ -7,8 +7,11 @@
 #include <gflags/gflags.h>
 #include <iostream>
 
+#include <samples/default_flags.hpp>
+
+DEFINE_INPUT_FLAGS
+
 static const char help_message[] = "Print a usage message.";
-static const char video_message[] = "Required. Path to a video. Default value is \"cam\" to work with camera.";
 static const char human_pose_estimation_model_message[] = "Required. Path to the Human Pose Estimation model (.xml) file.";
 static const char target_device_message[] = "Optional. Specify the target device for Human Pose Estimation "
                                             "(the list of available devices is shown below). Default value is CPU. "
@@ -19,12 +22,11 @@ static const char no_show_processed_video[] = "Optional. Do not show processed v
 static const char black_background[] = "Optional. Show black background.";
 static const char raw_output_message[] = "Optional. Output inference results as raw values.";
 static const char utilization_monitors_message[] = "Optional. List of monitors to show initially.";
-
 static const char broker_mqtt_message[] = "Optional. MQTT Broker address.";
 static const char client_mqtt_message[] = "Optional. MQTT Client id.";
 static const char port_mqtt_message[] = "Optional. MOTT port.";
+
 DEFINE_bool(h, false, help_message);
-DEFINE_string(i, "cam", video_message);
 DEFINE_string(m, "", human_pose_estimation_model_message);
 DEFINE_string(d, "CPU", target_device_message);
 DEFINE_bool(pc, false, performance_counter_message);
@@ -32,17 +34,8 @@ DEFINE_bool(no_show, false, no_show_processed_video);
 DEFINE_bool(black, false, black_background);
 DEFINE_bool(r, false, raw_output_message);
 DEFINE_string(u, "", utilization_monitors_message);
-
-// @brief Defines parameter for setting MQTT broker <br>
-/// It is an optional parameter
 DEFINE_string(broker, "localhost", broker_mqtt_message);
-
-/// @brief Defines parameter for MQTT client id <br>
-/// It is an optional parameter
 DEFINE_string(client, "Demo", client_mqtt_message);
-
-/// @brief Defines parameter for the  MQTT port <br>
-/// It is an optional parameter
 DEFINE_int32(port, 1883, port_mqtt_message);
 
 /**
@@ -54,7 +47,8 @@ static void showUsage() {
     std::cout << "Options:" << std::endl;
     std::cout << std::endl;
     std::cout << "    -h                         " << help_message << std::endl;
-    std::cout << "    -i \"<path>\"                " << video_message << std::endl;
+    std::cout << "    -i                         " << input_message << std::endl;
+    std::cout << "    -loop                      " << loop_message << std::endl;
     std::cout << "    -m \"<path>\"                " << human_pose_estimation_model_message << std::endl;
     std::cout << "    -d \"<device>\"              " << target_device_message << std::endl;
     std::cout << "    -pc                        " << performance_counter_message << std::endl;
