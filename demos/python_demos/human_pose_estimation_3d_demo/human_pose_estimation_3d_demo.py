@@ -78,7 +78,7 @@ if __name__ == '__main__':
 
     stride = 8
     inference_engine = InferenceEngine(args.model, args.device, stride)
-    canvas_3d = np.zeros((72*2, 128*2, 3), dtype=np.uint8)
+    canvas_3d = np.zeros((72 * 2, 128 * 2, 3), dtype=np.uint8)
     plotter = Plotter3d(canvas_3d.shape[:2])
     canvas_3d_window_name = 'Canvas 3D'
     if not args.no_show:
@@ -112,6 +112,7 @@ if __name__ == '__main__':
         client1.connect(args.broker, args.port, 60)
         client1.loop_start()
     presenter = monitors.Presenter(args.utilization_monitors, 0)
+    frame_number = -1
     for frame in frame_provider:
         frame_number += 1
         current_time = cv2.getTickCount()
@@ -140,9 +141,6 @@ if __name__ == '__main__':
 
         presenter.drawGraphs(frame)
         draw_poses(frame, poses_2d)
-        if (not args.no_send) and (not poses_sent):
-            poses_2d_sent = [poses_2d[i] for i in poses_sent.keys()]
-            draw_poses(frame, poses_2d_sent, color=(0, 0, 255))
         current_time = (cv2.getTickCount() - current_time) / cv2.getTickFrequency()
         if mean_time == 0:
             mean_time = current_time
